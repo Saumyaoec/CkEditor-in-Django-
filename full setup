@@ -1,0 +1,160 @@
+https://dev.to/madhubankhatri/how-to-use-ckeditor-in-django-2igi  ###document link
+pip install django-ckeditor       ####install the package
+django-admin startproject PROJECT_NAME     ####project
+python manage.py startapp app1             ####app
+
+#####setings.py
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'app1',
+    'ckeditor',
+]
+
+
+
+############models.py
+
+from django.db import models
+from ckeditor.fields import RichTextField
+
+# Create your models here.
+class User(models.Model):
+    user_name = models.CharField(max_length=70)
+    pwd = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.user_name
+
+
+
+class Post(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    title = models.CharField(max_length=100)
+    content = RichTextField(blank=True,null=True)
+
+    def __str__(self):
+        return self.title
+        
+        
+        ###################admin.py
+        
+        from django.contrib import admin
+from .models import User, Post
+
+# Register your models here.
+@admin.register(User)
+class UserAdmin(admin.ModelAdmin):
+    list_display = ['id','user_name','pwd']
+
+
+
+@admin.register(Post)
+class PostAdmin(admin.ModelAdmin):
+    list_display = ['id','user','title']
+
+
+#########forms.py
+
+from django import forms
+from .models import *
+from ckeditor.fields import RichTextField
+
+
+class PostForm(forms.ModelForm):
+    userName = forms.CharField(widget=forms.TextInput(), required=True, max_length=100)
+    title = forms.CharField(widget=forms.TextInput(),required=True, max_length=100)
+    content = RichTextField()
+
+    class Meta:
+        model  = Post
+        fields = ('userName','title','content',)
+        
+        
+  #################### app urls.py
+  
+  from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('', views.home, name='home'),
+    path('add_post/', views.AddPostView.as_view(), name='add_post'),
+    path('all_post/', views.SeePostView.as_view(), name='see_post'),
+]
+
+
+
+###########project urls.py
+
+
+from django.contrib import admin
+from django.urls import path, include
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('', include('app1.urls'))
+]
+
+#############views.py
+
+from django.shortcuts import render
+from django.views.generic.list import ListView
+from .models import User, Post
+from .forms import PostForm
+from django.http import HttpResponse
+# Create your views here.
+
+def home(request):
+    return HttpResponse('<a href=add_post/>Add Post</a>')
+
+
+class AddPostView(ListView):
+    model = Post
+
+    def get(self, request):
+        form = PostForm()
+        return render(request, 'app1/index.html', {'form':form})
+    def post(self, request):
+        form = PostForm(request.POST)
+        if form.is_valid():
+            userName = form.cleaned_data['userName']
+            title = form.cleaned_data['title']
+            content = form.cleaned_data['content']
+
+            user_obj = User.objects.get(user_name=userName)
+            add_post = Post.objects.create(user=user_obj, title=title, content=content)
+            add_post.save()
+            form = PostForm()
+            return render(request,'app1/index.html',{'form':form})
+
+
+class SeePostView(AddPostView):
+    model = Post
+
+    def get(self,request):
+        all_post = self.model.objects.all().order_by('-id')
+        return render(request, 'app1/all_post.html', {'posts':all_post})
+
+############ all_post.html
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Index Page</
+	</head>
+	<body>
+		<h1>Upload Your Post Here.</h1>
+		 <p><a href="#">See Posts</a></p>
+		<hr>
+		<form action="" method="post">
+			(% csrf_token %} 
+			{{form.media}}
+			{{form.as_p}}
+			<input type="submit" value="Upload">
+		</form>
+	</body>
+</html>
